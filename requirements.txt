@@ -1,0 +1,36 @@
+# Core
+torch>=2.1.0
+torchvision>=0.16.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Medical Imaging
+nibabel>=5.1.0
+SimpleITK>=2.3.0
+pydicom>=2.4.0
+
+# Generative AI (Stable Diffusion Inpainting)
+diffusers>=0.24.0
+transformers>=4.36.0
+accelerate>=0.25.0
+safetensors>=0.4.0
+Pillow>=10.0.0
+
+# LoRA Fine-tuning (finetune_lora.py)
+peft>=0.9.0
+
+# Visualization
+matplotlib>=3.8.0
+seaborn>=0.13.0
+opencv-python>=4.8.0
+
+# Utilities
+tqdm>=4.66.0
+pyyaml>=6.0.1
+scikit-learn>=1.3.0
+scikit-image>=0.22.0
+pandas>=2.1.0
+einops>=0.7.0
+
+# Experiment tracking (optional)
+# wandb>=0.16.0
