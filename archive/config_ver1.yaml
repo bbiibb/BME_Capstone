@@ -1,0 +1,72 @@
+paths:
+  raw_data: "data/raw"
+  processed_data: "data/processed"
+  synthetic_data: "data/synthetic"
+  checkpoints: "checkpoints"
+  results: "results"
+
+preprocessing:
+  slice_axis: 2          # 0=sagittal, 1=coronal, 2=axial
+  target_size: [256, 256]
+  num_slices_per_volume: 30   # 볼륨당 중간 슬라이스 몇 장 추출
+  intensity_norm: "z_score"   # "z_score" or "min_max"
+  brain_threshold: 0.01       # 뇌 영역 최소 픽셀 비율
+
+mask_generation:
+  num_masks_per_image: 3      # 이미지 1장당 생성할 마스크 수
+  min_area_ratio: 0.02        # 최소 종양 크기 (0.005→0.02: 너무 작은 마스크 방지)
+  max_area_ratio: 0.15        # 최대 종양 크기 (0.08→0.15: 더 다양한 크기 허용)
+  num_control_points: 8       # 종양 경계 스플라인 제어점 수
+  irregularity: 0.5           # 종양 경계 불규칙성 (0=원형, 1=매우 불규칙)
+  avoid_ventricles: false     # 심실 영역 회피 여부
+
+inpainting:
+  model_id: "runwayml/stable-diffusion-inpainting"
+  device: "cuda"              # "cuda" or "mps" or "cpu"
+  prompt: "MRI of brain tumor glioblastoma, T1 contrast enhanced, necrotic core, enhancing rim, peritumoral edema, high contrast medical imaging, realistic"
+  negative_prompt: "blurry, artifact, low quality, unrealistic, cartoon"
+  num_inference_steps: 20     # 50→20: 2.5배 속도 향상 (품질 차이 미미)
+  guidance_scale: 7.5
+  strength: 0.99              # 마스크 내부 변환 강도
+  batch_size: 4
+  num_synthetic_images: 300   # 3000→300: 캡스톤 실험에 충분한 양
+  image_size: 512             # SD 최소 권장 해상도 유지
+
+segmentation:
+  model: "attention_unet"     # "unet" or "attention_unet"
+  in_channels: 1
+  out_channels: 1             # 이진 분할: sigmoid 출력 1채널 (종양 확률)
+  features: [64, 128, 256, 512]
+  dropout: 0.2
+  batch_size: 16
+  num_epochs: 100
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+  loss: "dice_bce"            # "dice", "bce", "dice_bce"
+  dice_weight: 0.6
+  bce_weight: 0.4
+  scheduler: "cosine"
+  warmup_epochs: 5
+  val_ratio: 0.15
+  test_ratio: 0.10
+  augmentation: true
+  mixed_precision: true
+
+evaluation:
+  metrics: ["dice", "iou", "precision", "recall", "hausdorff"]
+  dice_threshold: 0.85        # 목표 성능 기준
+  brats_test_split: 0.2
+
+# ── LoRA Fine-tuning (Phase 2, finetune_lora.py) ──────────────────────────────
+lora_finetuning:
+  model_id: "runwayml/stable-diffusion-inpainting"  # 사전학습 모델 (inpainting과 동일)
+  lora_rank: 4              # LoRA rank (경량화: 3 epoch 단기학습에 최적)
+  lora_alpha: 4.0           # LoRA 스케일링 계수
+  learning_rate: 1.0e-4     # LoRA 학습률
+  num_epochs: 3             # 에포크 수 (LoRA는 3 epoch으로 충분, GPU 절약)
+  batch_size: 4             # 배치 크기 (속도 2배)
+  image_size: 256           # SD 입력 해상도 (256: 속도 4배, VRAM 절반)
+  save_every_epochs: 1      # 매 에포크마다 Drive에 저장 (런타임 끊김 대비)
+  min_tumor_ratio: 0.01     # 이 비율 이상 종양이 있는 슬라이스만 학습에 사용
+  mask_dilation_px: 8       # 마스크 팽창 픽셀 (경계 부드럽게)
+  max_samples: 1000         # 로딩할 최대 샘플 수 (Drive 로딩 시간 절감, LoRA는 1000장으로 충분)

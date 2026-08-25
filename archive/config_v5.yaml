@@ -1,0 +1,121 @@
+paths:
+  raw_data: "data/raw"
+  processed_data: "data/processed"
+  synthetic_data: "data/synthetic"
+  checkpoints: "checkpoints"
+  results: "results"
+
+preprocessing:
+  slice_axis: 2                  # 0=sagittal, 1=coronal, 2=axial
+  target_size: [256, 256]
+  num_slices_per_volume: 30
+  intensity_norm: "z_score"
+  brain_threshold: 0.01
+  center_signal_min: 0.10        # 동심원 필터: 중앙 신호 하한
+  edge_ratio_max: 0.20           # 동심원 필터: 에지 밀도 상한 (0.12→0.20 수정)
+
+mask_generation:
+  num_masks_per_image: 3
+
+  min_area_ratio: 0.025
+  max_area_ratio: 0.12
+
+  num_control_points: 10
+  irregularity: 0.45
+  avoid_ventricles: false
+
+  elastic_alpha: 14.0
+  elastic_sigma: 4.0
+
+  core_ratio_min: 0.35
+  core_ratio_max: 0.55
+
+  brain_margin_ratio: 0.15
+  overlap_threshold: 0.30
+
+# ── [v5 변경] inpainting → 패치 생성 방식으로 전환 ──────────
+# SD Inpainting 전체 슬라이스 방식 폐기
+# 마스크 bbox 크롭 → LoRA SD → 종양 패치 생성 → 블렌딩
+inpainting:
+  # [v5] SD v1.5 (inpainting 전용 모델 → 일반 생성 모델로 변경)
+  model_id: "/content/sd15_cache"
+
+  device: "cuda"
+
+  # [v5] 텍스트 프롬프트 미사용 (마스크 conditioning으로 대체)
+  prompt: ""
+  negative_prompt: ""
+
+  # 패치 생성 inference steps
+  num_inference_steps: 30
+
+  # guidance_scale: 텍스트 없으므로 미사용 (하위 호환용 유지)
+  guidance_scale: 1.0
+
+  # [v5] 배치 크기 (패치 단위 생성)
+  batch_size: 1
+
+  # 생성할 합성 이미지 수
+  num_synthetic_images: 1000
+
+  # [v5] 패치 크기 (128×128 — bbox 크롭 후 리사이즈)
+  image_size: 128
+
+  # [v5] 블렌딩 파라미터
+  blend_sigma: 3.0               # Gaussian 블렌딩 부드러움
+
+segmentation:
+  model: "attention_unet"
+  in_channels: 1
+  out_channels: 1
+  features: [64, 128, 256, 512]
+  dropout: 0.2
+  batch_size: 16
+  num_epochs: 100
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+  loss: "dice_bce"
+  dice_weight: 0.6
+  bce_weight: 0.4
+  scheduler: "cosine"
+  warmup_epochs: 5
+  val_ratio: 0.15
+  test_ratio: 0.10
+  augmentation: true
+  mixed_precision: true
+
+evaluation:
+  metrics: ["dice", "iou", "precision", "recall", "hausdorff"]
+  dice_threshold: 0.85
+  brats_test_split: 0.2
+
+# ── [v5 변경] LoRA Fine-tuning ────────────────────────────────
+# 기존: SD Inpainting + 전체 슬라이스 → 마스크 영역 채우기 학습
+# 신규: SD v1.5 + 종양 bbox 크롭 패치 → 마스크 conditioning 생성 학습
+lora_finetuning:
+  # [v5 변경] inpainting 전용 모델 → SD v1.5 일반 생성 모델
+  model_id: "/content/sd15_cache"
+
+  lora_rank: 8
+  lora_alpha: 8.0
+
+  # [v5] 패치 생성 학습에서는 lr 약간 낮춤 (안정적 수렴)
+  learning_rate: 3.0e-5
+
+  num_epochs: 10
+  batch_size: 4
+
+  # [v5 변경] 256→128: 종양 bbox 크롭 패치 크기
+  image_size: 128
+
+  save_every_epochs: 1
+
+  # [v5] 종양 비율 기준 (패치 크롭 시 최소 종양 비율)
+  min_tumor_ratio: 0.05          # 0.01→0.05: 종양이 충분히 있는 패치만 사용
+
+  max_samples: 3000
+
+  augmentation:
+    horizontal_flip: true
+    rotation_degrees: 15
+    brightness_jitter: 0.1       # 그레이스케일 MRI 밝기 다양성
