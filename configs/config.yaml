@@ -99,3 +99,10 @@ segmentation:
   val_ratio: 0.15
   warmup_epochs: 5
   weight_decay: 1.0e-05
+  # Fine-tuning stage (used when --finetune_from is passed to train.py):
+  # the proposed model resumes from the baseline checkpoint and continues
+  # training on the synthetic+real mixed data at a much lower LR, with a
+  # plain cosine annealing schedule (no warmup), per Final Report Table 1.
+  finetune_learning_rate: 5.0e-06
+  finetune_num_epochs: 20
+  finetune_scheduler: cosine_no_warmup
