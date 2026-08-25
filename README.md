@@ -287,7 +287,7 @@ python phase2_inpainting/visualize_results.py \
 
 ### Phase 3: Segmentation model training
 
-Baseline (real BraTS data only):
+Baseline (real BraTS data only, lr=1e-4 with cosine annealing + warmup):
 
 ```bash
 python phase3_segmentation/train.py \
@@ -298,7 +298,9 @@ python phase3_segmentation/train.py \
     --exp_name      seg_baseline
 ```
 
-Proposed method (70% synthetic + 30% real):
+Proposed method (fine-tune from the baseline checkpoint on 70% synthetic +
+30% real data, lr=5e-6 with plain cosine annealing, no warmup -- per
+Final Report Table 1):
 
 ```bash
 python phase3_segmentation/train.py \
@@ -306,10 +308,11 @@ python phase3_segmentation/train.py \
     --brats_dir     data/processed/brats_slices \
     --real_ratio    0.3 \
     --config        configs/config.yaml \
-    --exp_name      seg_proposed
+    --exp_name      seg_proposed \
+    --finetune_from checkpoints/seg_baseline/best.pth
 ```
 
-Resume a previous run:
+Resume a previous run (same experiment, restores optimizer/scheduler state):
 
 ```bash
 python phase3_segmentation/train.py \
@@ -438,6 +441,17 @@ a final review before publishing:
   completed (see `archive/ablation_study_incomplete.py`). This step has
   been removed from the pipeline and README. The Final Report's results
   include only the baseline-vs-proposed comparison.
+- **Two-stage learning rate / scheduler**: the Final Report specifies a
+  baseline learning rate of 1e-4 (cosine annealing with warmup) and a
+  separate fine-tuning learning rate of 5e-6 (plain cosine annealing, no
+  warmup) for the proposed model, which resumes from the baseline
+  checkpoint. `train.py` now implements this explicitly via a
+  `--finetune_from` flag: passing a baseline checkpoint path loads its
+  weights only (optimizer/scheduler state is reinitialized) and switches
+  to `finetune_learning_rate` / `finetune_num_epochs` / a
+  warmup-free cosine scheduler, all read from `config.yaml`. `run_pipeline.sh`
+  was updated so Phase 3-B calls Phase 3-A's checkpoint via `--finetune_from`
+  instead of training from scratch.
 - **Which notebook produced the reported results**: among several Colab
   notebook versions, `notebooks/colab_pipeline.ipynb` was confirmed to be
   the one that actually printed the exact numbers in Final Report Table 4
