@@ -1,0 +1,101 @@
+evaluation:
+  brats_test_split: 0.2
+  dice_threshold: 0.85
+  metrics:
+  - dice
+  - iou
+  - precision
+  - recall
+  - hausdorff
+inpainting:
+  batch_size: 4
+  device: cuda
+  guidance_scale: 7.5
+  image_size: 512
+  model_id: runwayml/stable-diffusion-inpainting
+  negative_prompt: blurry, artifact, low quality, unrealistic, cartoon, geometric,
+    symmetric
+  num_inference_steps: 30
+  num_synthetic_images: 1000
+  prompt: MRI of brain tumor glioblastoma, T1 contrast enhanced, necrotic core, enhancing
+    rim, peritumoral edema, high contrast medical imaging, realistic
+  strength: 0.99
+lora_finetuning:
+  # NOTE: image_size was 256 here originally, which conflicts with the
+  # hardcoded patch_size=128 in generate_synthetic.py and with the report's
+  # Table 1 (128x128). Fixed to 128.
+  # num_epochs was 20 here originally; corrected to 15 to match the
+  # Final Report Table 1 (confirmed with author: code/config should match
+  # the reported value).
+  augmentation:
+    brightness_jitter: 0.1
+    horizontal_flip: true
+    rotation_degrees: 15
+  batch_size: 4
+  image_size: 128
+  learning_rate: 1.0e-05
+  lora_alpha: 16.0
+  lora_rank: 16
+  mask_dilation_px: 8
+  max_samples: 8000
+  min_tumor_ratio: 0.01
+  model_id: runwayml/stable-diffusion-v1-5
+  num_epochs: 15
+  save_every_epochs: 1
+mask_generation:
+  # Mask size range is 2.5%-12% of brain area (min/max_area_ratio below).
+  # Note: the Final Report text states "10-25%", which appears to be a
+  # writing error in the paper -- these config values are what was
+  # actually used to generate the masks behind the reported results.
+  avoid_ventricles: false
+  brain_margin_ratio: 0.15
+  core_ratio_max: 0.55
+  core_ratio_min: 0.35
+  elastic_alpha: 14.0
+  elastic_sigma: 4.0
+  irregularity: 0.45
+  max_area_ratio: 0.12
+  min_area_ratio: 0.025
+  num_control_points: 10
+  num_masks_per_image: 3
+  overlap_threshold: 0.3
+paths:
+  checkpoints: checkpoints
+  processed_data: data/processed
+  raw_data: data/raw
+  results: results
+  synthetic_data: data/synthetic
+preprocessing:
+  brain_threshold: 0.01
+  center_signal_min: 0.1
+  edge_ratio_max: 0.2
+  intensity_norm: z_score
+  num_slices_per_volume: 30
+  slice_axis: 2
+  target_size:
+  - 256
+  - 256
+segmentation:
+  augmentation: true
+  batch_size: 16
+  bce_weight: 0.4
+  dice_weight: 0.6
+  dropout: 0.2
+  features:
+  - 64
+  - 128
+  - 256
+  - 512
+  in_channels: 1
+  learning_rate: 0.0001
+  loss: dice_bce
+  mixed_precision: true
+  model: attention_unet
+  num_epochs: 30
+  num_workers: 2
+  out_channels: 1
+  scheduler: cosine
+  test_ratio: 0.1
+  val_ratio: 0.15
+  warmup_epochs: 5
+  weight_decay: 1.0e-05
